@@ -114,22 +114,13 @@ async function run() {
             res.send(data);
         });
 
-        app.post('/tips', async (req, res) => {
-            const tip = { ...req.body, upvotes: 0, createdAt: new Date() };
-            const result = await tips.insertOne(tip);
-            res.send(result);
-        });
-
+        
         app.get('/events', async (req, res) => {
             const data = await events.find().toArray();
             res.send(data);
         });
 
-        app.post('/events', async (req, res) => {
-            const event = { ...req.body, currentParticipants: 0 };
-            const result = await events.insertOne(event);
-            res.send(result);
-        });
+        
 
     } catch (err) {
         console.error(err);
