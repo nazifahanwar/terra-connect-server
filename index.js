@@ -37,18 +37,18 @@ async function run() {
 
         app.get('/challenges', async (req, res) => {
             const data = await challenges.find().toArray();
-            res.json(data);
+            res.send(data);
         });
 
         app.get('/challenges/:id', async (req, res) => {
             const data = await challenges.findOne({ _id: new ObjectId(req.params.id) });
-            res.json(data);
+            res.send(data);
         });
 
         app.post('/challenges', async (req, res) => {
             const newChallenge = { ...req.body, participants: 0, createdAt: new Date(), updatedAt: new Date() };
             const result = await challenges.insertOne(newChallenge);
-            res.json(result);
+            res.send(result);
         });
 
         app.patch('/challenges/:id', async (req, res) => {
@@ -56,12 +56,12 @@ async function run() {
                 { _id: new ObjectId(req.params.id) },
                 { $set: { ...req.body, updatedAt: new Date() } }
             );
-            res.json(result);
+            res.send(result);
         });
 
         app.delete('/challenges/:id', async (req, res) => {
             const result = await challenges.deleteOne({ _id: new ObjectId(req.params.id) });
-            res.json(result);
+            res.send(result);
         });
 
         app.post('/challenges/join/:id', async (req, res) => {
@@ -85,12 +85,12 @@ async function run() {
 
             await userChallenges.insertOne(doc);
             await challenges.updateOne({ _id: challengeId }, { $inc: { participants: 1 } });
-            res.json(doc);
+            res.send(doc);
         });
 
         app.get('/user-challenges/:userId', async (req, res) => {
             const data = await userChallenges.find({ userId: req.params.userId }).toArray();
-            res.json(data);
+            res.send(data);
         });
 
         app.patch('/user-challenges/:id', async (req, res) => {
@@ -106,29 +106,29 @@ async function run() {
                 { $set: { progressCount: req.body.progressCount, progress, status } }
             );
 
-            res.json({ progressCount: req.body.progressCount, progress, status });
+            res.send({ progressCount: req.body.progressCount, progress, status });
         });
 
         app.get('/tips', async (req, res) => {
             const data = await tips.find().toArray();
-            res.json(data);
+            res.send(data);
         });
 
         app.post('/tips', async (req, res) => {
             const tip = { ...req.body, upvotes: 0, createdAt: new Date() };
             const result = await tips.insertOne(tip);
-            res.json(result);
+            res.send(result);
         });
 
         app.get('/events', async (req, res) => {
             const data = await events.find().toArray();
-            res.json(data);
+            res.send(data);
         });
 
         app.post('/events', async (req, res) => {
             const event = { ...req.body, currentParticipants: 0 };
             const result = await events.insertOne(event);
-            res.json(result);
+            res.send(result);
         });
 
     } catch (err) {
