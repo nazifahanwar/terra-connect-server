@@ -64,19 +64,19 @@ async function run() {
       res.send(result);
     });
 
-    app.delete('/user-challenges/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const result = await userChallenges.deleteOne({ _id: new ObjectId(id) });
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ message: "User challenge not found" });
-    }
-    res.json({ deletedCount: result.deletedCount });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to delete user challenge" });
-  }
+   app.delete('/challenges/:id', async (req, res) => {
+  const { id } = req.params;
+  const { userEmail } = req.body;
+
+  const challenge = await challenges.findOne({ _id: new ObjectId(id) });
+  if (!challenge) return res.status(404).json({ message: "Challenge not found" });
+
+  if (challenge.createdBy !== userEmail) return res.status(403).json({ message: "Not allowed" });
+
+  const result = await challenges.deleteOne({ _id: new ObjectId(id) });
+  res.json({ message: "Challenge deleted", deletedCount: result.deletedCount });
 });
+
 
 app.post('/challenges/join/:id', async (req, res) => {
       const challenge_id = new ObjectId(req.params.id);
@@ -124,16 +124,10 @@ app.post('/challenges/join/:id', async (req, res) => {
       res.json({ message: "Status updated", result });
     });
 
-    app.post('/user-challenges/manual', async (req, res) => {
-      const { buyer_email, challenge_id } = req.body;
-      const query = { buyer_email, challenge_id: new ObjectId(challenge_id) };
-
-      const exists = await userChallenges.findOne(query);
-      if (exists) return res.status(400).json({ message: "User challenge already exists" });
-
-      const doc = { ...req.body, join_date: new Date() };
-      const result = await userChallenges.insertOne(doc);
-      res.send(result);
+    app.post('/user-challenges', async (req, res) => {
+      const challengeData = req.body; 
+  const result = await challenges.insertOne({ ...challengeData, participants: 0, createdAt: new Date() });
+  res.send(result);
     });
 
     app.get('/tips', async (req, res) => {
