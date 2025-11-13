@@ -30,6 +30,7 @@ async function run() {
         const userChallenges = db.collection('userChallenges');
         const tips = db.collection('tips');
         const events = db.collection('events');
+        
 
         console.log("MongoDB connected successfully!");
 
@@ -38,6 +39,19 @@ async function run() {
         app.get('/challenges', async (req, res) => {
             const data = await challenges.find().toArray();
             res.send(data);
+        });
+        app.get('/challenges/active', async (req, res) => {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const data = await challenges
+            .find({
+            startDate: { $lte: today },
+            endDate: { $gte: today },
+            })
+            .limit(6)
+            .toArray();
+
+        res.send(data);
         });
 
         app.get('/challenges/:id', async (req, res) => {
@@ -50,7 +64,7 @@ async function run() {
             const result = await challenges.insertOne(newChallenge);
             res.send(result);
         });
-
+                
         app.patch('/challenges/:id', async (req, res) => {
             const result = await challenges.updateOne(
                 { _id: new ObjectId(req.params.id) },
