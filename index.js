@@ -55,17 +55,7 @@ async function run() {
       res.send(data);
     });
 
-    app.post('/challenges', async (req, res) => {
-      const newChallenge = {
-        ...req.body,
-        participants: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      const result = await challenges.insertOne(newChallenge);
-      res.send(result);
-    });
-
+    
     app.patch('/challenges/:id', async (req, res) => {
       const result = await challenges.updateOne(
         { _id: new ObjectId(req.params.id) },
@@ -74,61 +64,89 @@ async function run() {
       res.send(result);
     });
 
-    app.delete('/challenges/:id', async (req, res) => {
-      const result = await challenges.deleteOne({ _id: new ObjectId(req.params.id) });
+    app.delete('/user-challenges/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const result = await userChallenges.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: "User challenge not found" });
+    }
+    res.json({ deletedCount: result.deletedCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to delete user challenge" });
+  }
+});
+
+app.post('/challenges/join/:id', async (req, res) => {
+      const challenge_id = new ObjectId(req.params.id);
+      const { buyer_email } = req.body;
+
+      const exists = await userChallenges.findOne({ buyer_email, challenge_id });
+      if (exists) return res.status(400).json({ message: "Already joined" });
+
+      const challengeDoc = await challenges.findOne({ _id: challenge_id });
+
+      const doc = {
+        buyer_email,
+        challenge_id,
+        status: "Not Started",
+        join_date: new Date(),
+        target: challengeDoc.target || 1
+      };
+
+      const result = await userChallenges.insertOne(doc);
+      await challenges.updateOne({ _id: challenge_id }, { $inc: { participants: 1 } });
       res.send(result);
     });
 
-    app.post('/challenges/join/:id', async (req, res) => {
-      const challengeId = new ObjectId(req.params.id);
-      const { userId } = req.body;
+    app.get('/user-challenges', async (req, res) => {
+      const { buyer_email } = req.query;
+      const query = {};
+      if (buyer_email) query.buyer_email = buyer_email;
 
-      const exists = await userChallenges.findOne({ userId, challengeId });
-      if (exists) return res.status(400).json({ message: "Already joined" });
-
-      const challengeDoc = await challenges.findOne({ _id: challengeId });
-
-      const doc = {
-        userId,
-        challengeId,
-        status: "Not Started", 
-        joinDate: new Date(),
-        target: challengeDoc.target || 1,
-      };
-
-      await userChallenges.insertOne(doc);
-      await challenges.updateOne({ _id: challengeId }, { $inc: { participants: 1 } });
-      res.send(doc);
-    });
-
-    app.get('/user-challenges/:userId', async (req, res) => {
-      const data = await userChallenges.find({ userId: req.params.userId }).toArray();
-      res.send(data);
+      const result = await userChallenges.find(query).toArray();
+      res.send(result);
     });
 
     app.patch('/user-challenges/:id', async (req, res) => {
       const { status } = req.body;
-     
-      const doc = await userChallenges.findOne({ _id: new ObjectId(req.params.id) });
-      
+      const id = req.params.id;
 
-      await userChallenges.updateOne(
-        { _id: new ObjectId(req.params.id) },
+      const doc = await userChallenges.findOne({ _id: new ObjectId(id) });
+      if (!doc) return res.status(404).json({ message: "User challenge not found" });
+
+      const result = await userChallenges.updateOne(
+        { _id: new ObjectId(id) },
         { $set: { status } }
       );
 
-      res.json({ message: "Status updated", status });
+      res.json({ message: "Status updated", result });
+    });
+
+    app.post('/user-challenges/manual', async (req, res) => {
+      const { buyer_email, challenge_id } = req.body;
+      const query = { buyer_email, challenge_id: new ObjectId(challenge_id) };
+
+      const exists = await userChallenges.findOne(query);
+      if (exists) return res.status(400).json({ message: "User challenge already exists" });
+
+      const doc = { ...req.body, join_date: new Date() };
+      const result = await userChallenges.insertOne(doc);
+      res.send(result);
     });
 
     app.get('/tips', async (req, res) => {
-      const data = await tips.find().toArray();
-      res.send(data);
+      const result = await tips.find().toArray();
+      res.send(result);
     });
 
     app.get('/events', async (req, res) => {
-      const data = await events.find().toArray();
-      res.send(data);
+      const result = await events.find().toArray();
+      res.send(result);
     });
+
+
 
   } catch (err) {
     console.error(err);
