@@ -55,17 +55,17 @@ async function run() {
       const { id } = req.params;
       const { userEmail } = req.body;
       const challenge = await challenges.findOne({ _id: new ObjectId(id) });
-      if (!challenge) return res.status(404).json({ message: "Challenge not found" });
-      if (challenge.createdBy !== userEmail) return res.status(403).json({ message: "Not allowed" });
+      if (!challenge) return res.status(404).send({ message: "Challenge not found" });
+      if (challenge.createdBy !== userEmail) return res.status(403).send({ message: "Not allowed" });
       const result = await challenges.deleteOne({ _id: new ObjectId(id) });
-      res.json({ message: "Challenge deleted", deletedCount: result.deletedCount });
+      res.send({ message: "Challenge deleted", deletedCount: result.deletedCount });
     });
 
     app.post('/challenges/join/:id', async (req, res) => {
       const challenge_id = new ObjectId(req.params.id);
       const { buyer_email } = req.body;
       const exists = await userChallenges.findOne({ buyer_email, challenge_id });
-      if (exists) return res.status(400).json({ message: "Already joined" });
+      if (exists) return res.status(400).send({ message: "Already joined" });
 
       const challengeDoc = await challenges.findOne({ _id: challenge_id });
       const doc = {
@@ -84,38 +84,55 @@ async function run() {
     app.get('/user-challenges', async (req, res) => {
       const { buyer_email } = req.query;
       const query = buyer_email ? { buyer_email } : {};
-      const result = await userChallenges.find(query).toArray();
+      const result = await userChallenges.find(query).sort({ join_date: -1 }).toArray();
+      console.log("SORTED RESULT:", result.map(r => r.join_date));
       res.send(result);
     });
 
-    app.patch('/user-challenges/:id', async (req, res) => {
-      const { status } = req.body;
-      const id = req.params.id;
-      const doc = await userChallenges.findOne({ _id: new ObjectId(id) });
-      if (!doc) return res.status(404).json({ message: "User challenge not found" });
-      const result = await userChallenges.updateOne({ _id: new ObjectId(id) }, { $set: { status } });
+   app.patch('/user-challenges/:id', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const id = req.params.id;
 
-      const stats = await userChallenges.aggregate([
-        { $match: { status: "finished" } },
-        { $group: { _id: "$impact_metric", total: { $sum: "$target" } } }
-      ]).toArray();
+    const doc = await userChallenges.findOne({ _id: new ObjectId(id) });
 
-      const communityStats = { plasticSaved: 0, kwhSaved: 0, treesPlanted: 0 };
-      stats.forEach(stat => {
-        if (stat._id === "kg plastic saved") communityStats.plasticSaved = stat.total;
-        else if (stat._id === "kWh saved") communityStats.kwhSaved = stat.total;
-        else if (stat._id === "Trees Planted") communityStats.treesPlanted = stat.total;
-      });
+    let updateResult = { modifiedCount: 0 };
+    if (doc && doc.status !== status) {
+      updateResult = await userChallenges.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status } }
+      );
+    }
 
-      res.json({ communityStats, result });
+    const stats = await userChallenges.aggregate([
+      { $match: { status: "finished" } },
+      { $group: { _id: "$impact_metric", total: { $sum: "$target" } } }
+    ]).toArray();
+
+    const communityStats = { plasticSaved: 0, kwhSaved: 0, treesPlanted: 0 };
+    stats.forEach(stat => {
+      if (stat._id === "kg plastic saved") communityStats.plasticSaved = stat.total;
+      else if (stat._id === "kWh saved") communityStats.kwhSaved = stat.total;
+      else if (stat._id === "Trees Planted") communityStats.treesPlanted = stat.total;
     });
+
+    res.send({ result: updateResult, communityStats });
+
+  } catch (err) {
+    console.error("PATCH error:", err);
+    res.status(500).send({ message: "Internal Server Error", error: err.message });
+  }
+});
 
     app.post('/user-challenges', async (req, res) => {
-      const challengeData = req.body; 
-      const result = await challenges.insertOne({ ...challengeData, participants: 0, createdAt: new Date() });
-      res.send(result);
-    });
-
+  const challengeData = req.body; 
+  const result = await userChallenges.insertOne({
+    ...challengeData,
+    createdAt: new Date()
+  });
+  res.send(result);
+});
+   
     app.get('/tips', async (req, res) => {
       const result = await tips.find().toArray();
       res.send(result);
@@ -139,7 +156,7 @@ async function run() {
           else if (stat._id === "Trees Planted") result.treesPlanted = stat.total;
         });
 
-        res.json(result);
+        res.send(result);
      });    
     console.log("Connected to MongoDB and routes are ready!");
   } catch (err) {
@@ -150,5 +167,5 @@ async function run() {
 run().catch(console.dir);
 
 app.listen(port, () => {
-    console.log(`Smart server is running on port: ${port}`)
+    console.log(`server is running on port: ${port}`)
 })
