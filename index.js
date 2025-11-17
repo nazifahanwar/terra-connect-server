@@ -29,6 +29,18 @@ async function run() {
       res.send(data);
     });
 
+    app.post('/challenges', async (req, res) => {
+  try {
+    const challengeData = req.body;
+
+    const result = await challenges.insertOne({
+      ...challengeData,
+      createdAt: new Date(),
+      participants: 0
+    });
+
+    res.send(result); 
+    
     app.get('/challenges/active', async (req, res) => {
       const today = new Date().toISOString().split('T')[0];
       const data = await challenges.find({
@@ -105,7 +117,7 @@ async function run() {
     }
 
     const stats = await userChallenges.aggregate([
-      { $match: { status: "finished" } },
+      { $match: { status: "Finished" } },
       { $group: { _id: "$impact_metric", total: { $sum: "$target" } } }
     ]).toArray();
 
@@ -145,7 +157,7 @@ async function run() {
  
      app.get('/community-totals', async (req, res) => {
         const stats = await userChallenges.aggregate([
-          { $match: { status: "finished" } },
+          { $match: { status: "Finished" } },
           { $group: { _id: "$impact_metric", total: { $sum: "$target" } } }
         ]).toArray();
 
