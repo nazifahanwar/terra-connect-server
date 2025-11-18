@@ -30,7 +30,6 @@ async function run() {
     });
 
     app.post('/challenges', async (req, res) => {
-  try {
     const challengeData = req.body;
 
     const result = await challenges.insertOne({
@@ -40,7 +39,19 @@ async function run() {
     });
 
     res.send(result); 
-    
+  })
+  app.post('/challenges/filter', async (req, res) => {
+  const { categories, startDate } = req.body; 
+  const query = {};
+  if (categories && categories.length > 0) {
+    query.category = { $in: categories }; 
+  }
+  if (startDate) {
+    query.startDate = { $gte: new Date(startDate) }; 
+  }
+  const filteredChallenges = await challenges.find(query).toArray();
+    res.send(filteredChallenges);
+  });
     app.get('/challenges/active', async (req, res) => {
       const today = new Date().toISOString().split('T')[0];
       const data = await challenges.find({
@@ -101,20 +112,31 @@ async function run() {
       res.send(result);
     });
 
-   app.patch('/user-challenges/:id', async (req, res) => {
-  try {
+    app.patch('/user-challenges/:id', async (req, res) => {
+  
     const { status } = req.body;
     const id = req.params.id;
 
     const doc = await userChallenges.findOne({ _id: new ObjectId(id) });
 
-    let updateResult = { modifiedCount: 0 };
-    if (doc && doc.status !== status) {
-      updateResult = await userChallenges.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { status } }
-      );
+    if (!doc) {
+      return res.status(404).send({ message: "Not found" });
     }
+
+    let progressValue = 0;
+    if (status === "Ongoing") progressValue = 50;
+    if (status === "Finished") progressValue = 100;
+
+    const updateData = {
+      status,
+      progress: progressValue,
+      updatedAt: new Date()
+    };
+
+    const updateResult = await userChallenges.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
 
     const stats = await userChallenges.aggregate([
       { $match: { status: "Finished" } },
@@ -130,10 +152,7 @@ async function run() {
 
     res.send({ result: updateResult, communityStats });
 
-  } catch (err) {
-    console.error("PATCH error:", err);
-    res.status(500).send({ message: "Internal Server Error", error: err.message });
-  }
+  
 });
 
     app.post('/user-challenges', async (req, res) => {
